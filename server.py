@@ -24,6 +24,7 @@
 import flask
 from flask import Flask, request, url_for, redirect, render_template
 import json
+
 app = Flask(__name__, template_folder='static')
 app.debug = True
 
@@ -48,12 +49,29 @@ class World:
 
     def clear(self):
         self.space = dict()
+        self.observers = dict()
 
     def get(self, entity):
         return self.space.get(entity,dict())
     
     def world(self):
         return self.space
+        
+    def add_observer(self, name):
+        self.observers[name] = dict()
+    
+    def get_observer(self, name):
+        #for obs in self.observers:
+        #    print("all observers now: " + obs)
+        return self.observers[name]
+    
+    def clear_observer(self, name):
+        self.observers[name] = dict()
+        
+    def notify(self, entity, data):
+        for obs in self.observers:
+            # print("all observers now: " + obs)
+            self.observers[obs][entity] = data
 
 # you can test your webservice from the commandline
 # curl -v   -H "Content-Type: application/json" -X PUT http://127.0.0.1:5000/entity/X -d '{"x":1,"y":1}' 
@@ -81,10 +99,8 @@ def hello():
 def update(entity):
     '''update the entities via this interface'''
     v = flask_post_json()
-    myWorld.update(entity,'x',v['x'])
-    myWorld.update(entity,'y',v['y'])
-    if (len(v.keys()) >= 3):
-        myWorld.update(entity,'colour',v['colour'])
+    myWorld.set(entity, v)
+    myWorld.notify(entity,v)
     e = myWorld.get(entity)
     return json.dumps(e)
 
@@ -103,7 +119,24 @@ def get_entity(entity):
 def clear():
     '''Clear the world out!'''
     myWorld.clear()
-    return myWorld.world()
+    return json.dumps(myWorld.world())
+
+@app.route("/observer/<entity>", methods=['POST', 'PUT'])
+def add_observer(entity):
+    myWorld.add_observer(entity)
+    # print("added " + entity)
+    return flask.jsonify(myWorld.world())
+    
+@app.route("/observer/<entity>")
+def get_observer(entity):
+    print("get " + entity)
+    v = myWorld.get_observer(entity)
+    myWorld.clear_observer(entity)
+    if v == {}:
+        return ('No update', 204)
+    return flask.jsonify(v)
+
+
 
 if __name__ == "__main__":
     app.run()

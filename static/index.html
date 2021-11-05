@@ -1,6 +1,17 @@
 <!DOCTYPE HTML>
 <html> 
-  <head> 
+<style>
+body {
+  background-image: url('/static/blackboard.jpg');
+  background-repeat: no-repeat;
+}
+#c{
+    opacity:0.5;
+    background:transparent;
+    border: 10px solid black;
+}
+</style>
+  <head>
     <title>AJAX Assignment</title> 
     <meta charset="utf-8" /> 
     <meta content='width=device-width; height=device-height; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' name='viewport' />
@@ -22,9 +33,10 @@
     "/>
     <script src="json2.js"></script>
   </head> 
-  <body bgcolor="black" height="100%" width="100%"> 
-    <canvas id="c" width="100%" height="100%" style="-webkit-tap-highlight-color: transparent;"></canvas> 
+  <body height="100%" width="100%"> 
+    <canvas id="c" width="100%" height="100%" style="-webkit-tap-highlight-color: transparent;"></canvas>
     <script>
+var id = "L"+Math.floor(20000000*Math.random());
 var canvas = document.getElementById('c');
 var host = window.location.host;
 var context = canvas.getContext("2d");
@@ -37,19 +49,31 @@ function sendJSONXMLHTTPRequest(url, objects, callback) {
     xhr.onreadystatechange = function () {
         if (xhr.readyState==4) {
             try {
-                if (xhr.status==200) {
+                if (xhr.status==200 && objects === null) {
                     //XXX: parse some JSON from the request!
                     //XXX: Pass the data to the callback!
+                    var body = JSON.parse(xhs.response);
+                    callback(body);
                 }
+                renderFrame();
             } 
             catch(e) {
-                alert('Error: ' + e.name);
+                alert('Error: ' + e.printStackTrace(System.out));
             }
         }
     };
     //XXX: POST to a URL
     //XXX: set the mimetype and the accept headers!
     // Remember to use application/json !
+    if(objects !== null){
+        xhr.open('POST', url, true);
+        objects["content-type"] = "application/json";
+        objects["accept"] = "application/json";
+        xhr.send(JSON.stringify(objects));
+    } else {
+        xhr.open('GET', url, true);
+        xhr.send();
+    }
 }
 
 
@@ -65,8 +89,9 @@ function drawCircle(context,entity) {
         //moveTo(x,y);
         fillStyle = entity["colour"];
         strokeStyle = fillStyle;
-        arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
-        stroke();                                
+        arc(x, y, (entity["radius"])?entity["radius"]:10, 0, 2.0 * Math.PI, false);
+        stroke();
+        fill();
     }
 }
 
@@ -75,7 +100,7 @@ function prepEntity(entity) {
         entity["colour"] = "#FF0000";
     }
     if (!entity["radius"]) {
-        entity["radius"] = 50;
+        entity["radius"] = 10;
     }
     return entity;
 }
@@ -132,13 +157,19 @@ function getPosition(e) {
 		return [x,y];
 	}
 }
+function updateWorld(objects){
+    for (var key in objects) {
+          world[key] = objects[key];
+    }
+}
 
 
 function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just  modified!
-
+    var uri = "http://"+host+"/entity/" + encodeURI(entity);
+    sendJSONXMLHTTPRequest(uri, data, updateWorld);
 }
 
 var counter = 0;
@@ -255,18 +286,52 @@ mouse.mouseuppers.push(function(x,y,clicked,e) {
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
+    addEntityWithoutName({'x':x,'y':y,'colour':'yellow',
                           'radius':10});
 });
 
 
+function register(id) {
+    var xhr = new XMLHttpRequest();
+    
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState==4) {
+            try {
+                if (xhr.status==200) {
+                    //XXX: parse some JSON from the request!
+                    //XXX: Pass the data to the callback!
+                    world = JSON.parse(xhr.response); 
+                    renderFrame();
+                }
+            }
+            catch(e) {
+                alert('Error: ' + e.printStackTrace(new java.io.PrintWriter(out)));
+            }
+        }
+    }
+    // put observer
+    var uri = "http://" + host + "/observer/"+ id;
+    xhr.open('PUT', uri, true);
+    console.log("set observer");
+    xhr.send();
+
+}
+
+register(id);
+
+
 function update() {
     //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
+    var uri = "http://" + host + "/observer/" + id;
+    console.log(id);
+    sendJSONXMLHTTPRequest(uri, null, updateWorld);
     drawFrame();
 }
 
+
+
 // 30 frames per second
-setInterval( update, 1000/30.0);
+var run = setInterval(update, 1000/30.0)
 
 
 
