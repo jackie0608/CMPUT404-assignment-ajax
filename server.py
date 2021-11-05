@@ -22,10 +22,11 @@
 
 
 import flask
-from flask import Flask, request
+from flask import Flask, request, url_for, redirect, render_template
 import json
-app = Flask(__name__)
+app = Flask(__name__, template_folder='static')
 app.debug = True
+
 
 # An example world
 # {
@@ -74,27 +75,35 @@ def flask_post_json():
 @app.route("/")
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
-    return None
+    return render_template('index.html')
 
 @app.route("/entity/<entity>", methods=['POST','PUT'])
 def update(entity):
     '''update the entities via this interface'''
-    return None
+    v = flask_post_json()
+    myWorld.update(entity,'x',v['x'])
+    myWorld.update(entity,'y',v['y'])
+    if (len(v.keys()) >= 3):
+        myWorld.update(entity,'colour',v['colour'])
+    e = myWorld.get(entity)
+    return json.dumps(e)
 
 @app.route("/world", methods=['POST','GET'])    
 def world():
     '''you should probably return the world here'''
-    return None
+    return myWorld.world()
 
 @app.route("/entity/<entity>")    
 def get_entity(entity):
     '''This is the GET version of the entity interface, return a representation of the entity'''
-    return None
+    v = myWorld.get(entity)
+    return flask.jsonify(v)
 
 @app.route("/clear", methods=['POST','GET'])
 def clear():
     '''Clear the world out!'''
-    return None
+    myWorld.clear()
+    return myWorld.world()
 
 if __name__ == "__main__":
     app.run()
